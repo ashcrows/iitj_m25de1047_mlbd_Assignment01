@@ -78,7 +78,7 @@ public class WordCount {
     Job job = Job.getInstance(conf, "WordCount Experiment");
     job.getConfiguration().setLong(
       "mapreduce.input.fileinputformat.split.maxsize",
-      10485760   // 10MB for first experiment
+      134217728   // 128MB for second experiment
     );
     job.setJarByClass(WordCount.class);
 
