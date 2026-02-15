@@ -146,34 +146,7 @@ def main():
     print(f"Target book: {target_file}")
     result.show(top_k, truncate=False)
 
-    # -------------------------
-    # Theory Answers
-    # -------------------------
-
-    print("\n========== Q11: Theory Answers ==========")
-
-    print("\n1) TF, IDF and Why TF-IDF?")
-    print(
-        "TF measures how frequently a term appears in a document.\n"
-        "IDF measures how rare a term is across all documents.\n"
-        "TF-IDF combines both so common words get low weight and meaningful words get higher importance."
-    )
-
-    print("\n2) Cosine Similarity and Why Use It?")
-    print(
-        "Cosine similarity measures the angle between two vectors.\n"
-        "It is suitable for TF-IDF because it compares content similarity independent of document length."
-    )
-
-    print("\n3) Scalability Challenges and Spark’s Role")
-    print(
-        "Pairwise similarity is O(N²), which is expensive for large datasets.\n"
-        "Spark distributes TF-IDF and similarity computations across nodes.\n"
-        "Optimizations include computing similarity only for a query document or using approximate methods like LSH."
-    )
-
     spark.stop()
-
 
 if __name__ == "__main__":
     main()
