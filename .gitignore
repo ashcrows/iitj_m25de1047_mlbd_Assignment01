@@ -11,8 +11,8 @@ Icon
 **/*.zip
 
 # Ignore all .txt files in q4_wordcount/input/D184MB except 200.txt
-/q4_wordcount/input/D184MB/*.txt
-!/q4_wordcount/input/D184MB/200.txt
+# /q4_wordcount/input/D184MB/*.txt
+# !/q4_wordcount/input/D184MB/200.txt
 
 
 
