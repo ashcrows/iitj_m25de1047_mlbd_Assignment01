@@ -3,12 +3,12 @@ from pyspark.sql.functions import (
     col, regexp_extract, trim, length, avg, lower,
     regexp_replace, when, input_file_name
 )
-from pyspark.sql.functions import nullif
+from pyspark.sql import functions as F
+from pyspark.sql.types import IntegerType
 
 from pyspark.sql.types import IntegerType
 from pyspark.storagelevel import StorageLevel
 import os
-
 
 def build_books_df(spark: SparkSession, base_dir: str):
     """
@@ -37,7 +37,7 @@ def main():
         .appName("Q10_Metadata_Extraction")
         .getOrCreate()
     )
-
+    spark.sparkContext.setLogLevel("WARN")
     base_dir = "q4_wordcount/input/D184MB"
     books_df = build_books_df(spark, base_dir)
 
@@ -69,9 +69,10 @@ def main():
         meta_df = meta_df.withColumn(c, when(trim(col(c)) == "", None).otherwise(col(c)))
 
     # Extract first 4-digit year appearing in release_date
+    yr = F.regexp_extract(F.col("release_date"), r"(\b(18|19|20)\d{2}\b)", 1)
     meta_df = meta_df.withColumn(
-    "release_year",
-    nullif(regexp_extract(col("release_date"), r"(\b(18|19|20)\d{2}\b)", 1), "").cast(IntegerType())
+        "release_year",
+        F.when(yr == "", F.lit(None)).otherwise(yr).cast(IntegerType())
     )
 
     # Persist since we do multiple actions downstream
