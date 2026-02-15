@@ -1,77 +1,81 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, regexp_extract, trim, length, avg, lower,
-    regexp_replace, when
+    regexp_replace, when, input_file_name
 )
+from pyspark.sql.functions import nullif
+
 from pyspark.sql.types import IntegerType
+from pyspark.storagelevel import StorageLevel
 import os
 
 
 def build_books_df(spark: SparkSession, base_dir: str):
     """
     Loads all Gutenberg .txt files as (file_name, text) DataFrame.
+    Uses Spark reader to get filename robustly.
     """
     path = f"file://{os.path.abspath(base_dir)}/*.txt"
+
+    # Read whole files as text (one row per line), then aggregate per file is painful.
+    # wholeTextFiles is correct for "one file => one string".
     rdd = spark.sparkContext.wholeTextFiles(path)
     df = rdd.toDF(["file_path", "text"])
 
-    # Spark 4.x safe filename extraction
-    from pyspark.sql.functions import split, element_at
-    df = df.withColumn("file_name", element_at(split("file_path", "/"), -1)) \
-           .select("file_name", "text")
+    # Cross-platform: capture last segment after / or \
+    df = df.withColumn(
+        "file_name",
+        regexp_extract(col("file_path"), r"([^/\\]+)$", 1)
+    ).select("file_name", "text")
+
     return df
 
 
 def main():
-    spark = SparkSession.builder.appName("Q10_Metadata_Extraction").getOrCreate()
+    spark = (
+        SparkSession.builder
+        .appName("Q10_Metadata_Extraction")
+        .getOrCreate()
+    )
 
-    # Adjust if your dataset folder differs
     base_dir = "q4_wordcount/input/D184MB"
-
     books_df = build_books_df(spark, base_dir)
 
-    # -----------------------------
-    # 2) Regex patterns (Gutenberg header lines)
-    # -----------------------------
-    # Use (?im):
-    #   i = case-insensitive
-    #   m = multi-line so ^ matches start-of-line within the big text
-    #
-    # Patterns capture everything after "Field:" up to end of that line.
-    title_re = r"(?im)^\s*Title:\s*(.+)\s*$"
-    release_re = r"(?im)^\s*Release Date:\s*(.+)\s*$"
-    language_re = r"(?im)^\s*Language:\s*(.+)\s*$"
-    encoding_re = r"(?im)^\s*(Character set encoding|Character Set Encoding):\s*(.+)\s*$"
+    # Clean up text lightly: remove BOM, normalize line endings if needed
+    books_df = books_df.withColumn("text", regexp_replace(col("text"), r"^\ufeff", ""))
 
-    # Extract fields
+    # Regex patterns (multiline + case-insensitive)
+    title_re = r"(?im)^\s*Title:\s*(.+?)\s*$"
+    release_re = r"(?im)^\s*Release Date:\s*(.+?)\s*$"
+    language_re = r"(?im)^\s*Language:\s*(.+?)\s*$"
+    encoding_re = r"(?im)^\s*(Character set encoding|Character Set Encoding):\s*(.+?)\s*$"
+
     meta_df = (
         books_df
         .withColumn("title", trim(regexp_extract(col("text"), title_re, 1)))
-        .withColumn("release_date", trim(regexp_extract(col("text"), release_re, 1)))
+        .withColumn("release_date_raw", trim(regexp_extract(col("text"), release_re, 1)))
         .withColumn("language", trim(regexp_extract(col("text"), language_re, 1)))
-        # encoding has 2 groups: group(1) is label, group(2) is the value
         .withColumn("encoding", trim(regexp_extract(col("text"), encoding_re, 2)))
     )
 
-    # Convert empty-string to NULL for cleaner aggregations
-    meta_df = (
-        meta_df
-        .withColumn("title", when(col("title") == "", None).otherwise(col("title")))
-        .withColumn("release_date", when(col("release_date") == "", None).otherwise(col("release_date")))
-        .withColumn("language", when(col("language") == "", None).otherwise(col("language")))
-        .withColumn("encoding", when(col("encoding") == "", None).otherwise(col("encoding")))
-    )
-
-    # Extract year from release_date (common in Gutenberg: "... [EBook #12345]")
-    # Find first 4-digit year in the release_date line.
+    # Optional cleanup: remove [EBook #...] suffix from release date for cleanliness
     meta_df = meta_df.withColumn(
-        "release_year",
-        regexp_extract(col("release_date"), r"(\b(18|19|20)\d{2}\b)", 1).cast(IntegerType())
+        "release_date",
+        trim(regexp_replace(col("release_date_raw"), r"\s*\[EBook\s*#\d+\]\s*$", ""))
+    ).drop("release_date_raw")
+
+    # Convert empty-string to NULL
+    for c in ["title", "release_date", "language", "encoding"]:
+        meta_df = meta_df.withColumn(c, when(trim(col(c)) == "", None).otherwise(col(c)))
+
+    # Extract first 4-digit year appearing in release_date
+    meta_df = meta_df.withColumn(
+    "release_year",
+    nullif(regexp_extract(col("release_date"), r"(\b(18|19|20)\d{2}\b)", 1), "").cast(IntegerType())
     )
 
-    # -----------------------------
-    # 3) Analysis
-    # -----------------------------
+    # Persist since we do multiple actions downstream
+    meta_df = meta_df.persist(StorageLevel.MEMORY_AND_DISK)
 
     # A) number of books released each year
     books_per_year = (
@@ -100,9 +104,6 @@ def main():
         .select(avg(length(col("title"))).alias("avg_title_length"))
     )
 
-    # -----------------------------
-    # 4) Show results (you can redirect to file if needed)
-    # -----------------------------
     print("\n=== Sample extracted metadata (5 rows) ===")
     meta_df.select("file_name", "title", "release_date", "release_year", "language", "encoding") \
            .show(5, truncate=False)
@@ -116,6 +117,8 @@ def main():
     print("\n=== Average title length (characters) ===")
     avg_title_len.show(truncate=False)
 
+    # Cleanup
+    meta_df.unpersist()
     spark.stop()
 
 
