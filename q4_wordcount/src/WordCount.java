@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.util.StringTokenizer;
 
+import javax.naming.Context;
+
 //import javax.naming.Context;
 
 import org.apache.hadoop.conf.Configuration;
@@ -63,10 +65,13 @@ public class WordCount {
   }
 
   public static void main(String[] args) throws Exception {
+
     if (args.length != 2) {
-      System.err.println("Usage: WordCount <input path> <output path>");
-      System.exit(2);
+        System.err.println("Usage: WordCount <input path> <output path>");
+        System.exit(2);
     }
+
+    long startTime = System.currentTimeMillis();  // START TIMER
 
     Configuration conf = new Configuration();
     Job job = Job.getInstance(conf, "word count");
@@ -76,13 +81,20 @@ public class WordCount {
     job.setCombinerClass(Reduce.class);
     job.setReducerClass(Reduce.class);
 
-    // Q4: job.setOutputKeyClass and job.setOutputValueClass arguments
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(IntWritable.class);
 
     FileInputFormat.addInputPath(job, new Path(args[0]));
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
-    System.exit(job.waitForCompletion(true) ? 0 : 1);
+    boolean success = job.waitForCompletion(true);
+
+    long endTime = System.currentTimeMillis();    // END TIMER
+    long totalTime = endTime - startTime;
+
+    System.out.println("Total Execution Time (ms): " + totalTime);
+    System.out.println("Total Execution Time (seconds): " + (totalTime / 1000.0));
+
+    System.exit(success ? 0 : 1);
   }
 }
