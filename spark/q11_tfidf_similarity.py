@@ -44,8 +44,11 @@ def main():
 
     spark = (
     SparkSession.builder
-    .appName("Q11_TFIDF_Book_Similarity")
+    .appName("Q12_Author_Influence_Network")
     .config("spark.python.use.daemon", "false")
+    .config("spark.python.worker.reuse", "false")
+    .config("spark.python.worker.faulthandler.enabled", "true")
+    .config("spark.sql.execution.pyspark.udf.faulthandler.enabled", "true")
     .config("spark.ui.showConsoleProgress", "false")
     .getOrCreate()
 )
