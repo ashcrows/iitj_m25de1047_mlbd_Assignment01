@@ -43,12 +43,14 @@ def main():
     top_k = int(sys.argv[3]) if len(sys.argv) > 3 else 5
 
     spark = (
-        SparkSession.builder
-        .appName("Q11_TFIDF_Book_Similarity")
-        .getOrCreate()
-    )
-
-    spark.sparkContext.setLogLevel("WARN")
+    SparkSession.builder
+    .appName("Q11_TFIDF_Book_Similarity")
+    .config("spark.python.use.daemon", "false")
+    .config("spark.ui.showConsoleProgress", "false")
+    .getOrCreate()
+)
+    spark.sparkContext.setLogLevel("ERROR")
+    # spark.sparkContext.setLogLevel("WARN")
 
     books_df = build_books_df(spark, input_dir)
 
