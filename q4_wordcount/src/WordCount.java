@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.util.StringTokenizer;
 
+import javax.naming.Context;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -25,14 +27,24 @@ public class WordCount {
 
     @Override
     public void map(LongWritable key, Text value, Context context)
-        throws IOException, InterruptedException {
+            throws IOException, InterruptedException {
 
-      // Tokenize the line (value) into words.
-      StringTokenizer itr = new StringTokenizer(value.toString());
-      while (itr.hasMoreTokens()) {
-        word.set(itr.nextToken());
-        context.write(word, one);
-      }
+        // Convert Text to String
+        String line = value.toString();
+
+        // Remove punctuation using regex
+        line = line.replaceAll("[^a-zA-Z0-9\\s]", "");
+
+        // Convert to lowercase (optional but recommended for proper counting)
+        line = line.toLowerCase();
+
+        // Tokenize the cleaned line
+        StringTokenizer itr = new StringTokenizer(line);
+
+        while (itr.hasMoreTokens()) {
+            String token = itr.nextToken();
+            context.write(new Text(token), new IntWritable(1));
+        }
     }
   }
 

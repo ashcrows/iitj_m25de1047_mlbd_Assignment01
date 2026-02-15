@@ -1,2 +1,5 @@
 Hello World Bye World
 Hello Hadoop Goodbye Hadoop
+
+Hello, World! Bye... World?
+HELLO Hadoop; Goodbye Hadoop!!!
