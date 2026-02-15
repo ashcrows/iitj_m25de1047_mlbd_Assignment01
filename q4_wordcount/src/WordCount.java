@@ -71,10 +71,11 @@ public class WordCount {
         System.exit(2);
     }
 
-    long startTime = System.currentTimeMillis();  // START TIMER
+    long startTime = System.currentTimeMillis();
 
     Configuration conf = new Configuration();
-    Job job = Job.getInstance(conf, "word count");
+
+    Job job = Job.getInstance(conf, "WordCount Experiment");
     job.setJarByClass(WordCount.class);
 
     job.setMapperClass(Map.class);
@@ -89,11 +90,9 @@ public class WordCount {
 
     boolean success = job.waitForCompletion(true);
 
-    long endTime = System.currentTimeMillis();    // END TIMER
-    long totalTime = endTime - startTime;
+    long endTime = System.currentTimeMillis();
 
-    System.out.println("Total Execution Time (ms): " + totalTime);
-    System.out.println("Total Execution Time (seconds): " + (totalTime / 1000.0));
+    System.out.println("Execution Time (ms): " + (endTime - startTime));
 
     System.exit(success ? 0 : 1);
   }
