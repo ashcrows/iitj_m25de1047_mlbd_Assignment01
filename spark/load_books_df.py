@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import split
+from pyspark.sql.functions import split, element_at
 import os
 
 spark = SparkSession.builder.appName("GutenbergBooksLoader").getOrCreate()
@@ -10,7 +10,9 @@ path = f"file://{base_dir}/*.txt"
 rdd = spark.sparkContext.wholeTextFiles(path)
 
 books_df = rdd.toDF(["file_path", "text"])
-books_df = books_df.withColumn("file_name", split(books_df.file_path, "/").getItem(-1)) \
+
+# extract file_name safely
+books_df = books_df.withColumn("file_name", element_at(split("file_path", "/"), -1)) \
                    .select("file_name", "text")
 
 books_df.show(5, truncate=False)
